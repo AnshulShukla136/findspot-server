@@ -6,8 +6,9 @@ dotenv.config() // ← add this back
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,        // ← change from 587 to 465
-    secure: true,    
+    port: 465,
+    secure: true,
+    family: 4,        // ← ADD THIS — forces IPv4
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
