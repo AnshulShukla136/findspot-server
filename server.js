@@ -1,4 +1,3 @@
-
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
@@ -16,29 +15,30 @@ dotenv.config()
 
 const app = express()
 app.set('trust proxy', 1)
+
 // Connect to MongoDB
 connectDB()
 
 // Rate limiters
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 min
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: { message: 'Too many requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 })
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 auth requests per 15 min
+  windowMs: 15 * 60 * 1000,
+  max: 20,
   message: { message: 'Too many auth attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 })
 
 const otpLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 3, // 3 OTP requests per minute
+  windowMs: 60 * 1000,
+  max: 3,
   message: { message: 'Too many OTP requests. Please wait a minute.' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -48,21 +48,29 @@ const otpLimiter = rateLimit({
 app.use(helmet())
 
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173'],
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://127.0.0.1:5173',
+    'https://findspot-black.vercel.app',
+  ],
   credentials: true,
 }))
 
-app.use(morgan('dev'))
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+
 app.use(express.json({ limit: '10kb' }))
 app.use(express.urlencoded({ extended: true, limit: '10kb' }))
 app.use(cookieParser())
 
-// Apply global rate limit
+// Global rate limit
 app.use('/api', globalLimiter)
 
-// Routes
-app.use('/api/auth', authLimiter, authRoutes)
+// ✅ OTP limiter BEFORE auth limiter
 app.use('/api/auth/send-otp', otpLimiter)
+app.use('/api/auth', authLimiter, authRoutes)
+
+// Routes
 app.use('/api/search', searchRoutes)
 app.use('/api/products', productRoutes)
 
@@ -82,5 +90,5 @@ const PORT = process.env.PORT || 5000
 app.listen(PORT, () => {
   console.log(`🚀 findSpot server running on port ${PORT}`)
   console.log(`📡 API: http://localhost:${PORT}/api`)
-  console.log(`🌐 Client: http://localhost:5173`)
+  console.log(`🌐 Client: ${process.env.CLIENT_URL}`)
 })

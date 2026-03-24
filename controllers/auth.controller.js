@@ -5,6 +5,16 @@ import axios from 'axios'
 
 const otpStore = new Map()
 
+// Clean up expired OTPs every 10 minutes
+setInterval(() => {
+  const now = Date.now()
+  for (const [email, data] of otpStore.entries()) {
+    if (now > data.expiry) {
+      otpStore.delete(email)
+    }
+  }
+}, 10 * 60 * 1000)
+
 // @POST /api/auth/register
 export const register = async (req, res) => {
   try {
@@ -50,7 +60,6 @@ export const register = async (req, res) => {
 }
 
 // @POST /api/auth/login
-// @POST /api/auth/login
 export const login = async (req, res) => {
   try {
     const { email } = req.body
@@ -59,8 +68,6 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: 'Email is required' })
     }
 
-    // Just find user and return token
-    // OTP already verified by /verify-otp endpoint
     const user = await User.findOne({ email })
     if (!user) {
       return res.status(401).json({ message: 'No account found with this email' })
