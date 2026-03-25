@@ -1,26 +1,17 @@
-import nodemailer from 'nodemailer'
-
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false,
-    service:"gmail",
-    auth: {
-      user: process.env.BREVO_USER,
-      pass: process.env.BREVO_PASS,
-    },
-  })
-}
+import axios from "axios";
 
 export const sendOtpEmail = async (email, otp) => {
   try {
-    const transporter = createTransporter()
-    await transporter.sendMail({
-      from: 'findSpot <findspot8@gmail.com>',
-      to: email,
-      subject: 'Your findSpot OTP Code',
-      html: `
+    await axios.post(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        sender: {
+          name: "findSpot",
+          email: process.env.BREVO_USER, // must be verified in Brevo
+        },
+        to: [{ email }],
+        subject: "Your findSpot OTP Code",
+        htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
           
           <div style="text-align: center; margin-bottom: 32px;">
@@ -59,11 +50,19 @@ export const sendOtpEmail = async (email, otp) => {
           </div>
 
         </div>
-      `,
-    })
-    console.log(`📧 OTP email sent to ${email}`)
+        `,
+      },
+      {
+        headers: {
+          "api-key": process.env.BREVO_API_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log(`📧 OTP email sent to ${email}`);
   } catch (err) {
-    console.error(`❌ Failed to send email:`, err.message)
-    throw new Error('Failed to send OTP email. Please try again.')
+    console.error("❌ Email error:", err.response?.data || err.message);
+    throw new Error("Failed to send OTP email");
   }
-}
+};
