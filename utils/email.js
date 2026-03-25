@@ -1,41 +1,22 @@
 import nodemailer from 'nodemailer'
-import dotenv from 'dotenv'
-
-dotenv.config() // ← add this back
 
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    family: 4,       // ← ADD THIS — forces IPv4
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    secure: false,
     auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+      user: process.env.BREVO_USER,
+      pass: process.env.BREVO_PASS,
     },
   })
 }
 
-// Verify connection on startup
-const transporter = createTransporter()
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error('❌ Email transporter error:', error.message)
-    console.error('EMAIL_USER:', process.env.EMAIL_USER)
-    console.error('EMAIL_PASS:', process.env.EMAIL_PASS ? 'loaded' : 'MISSING')
-  } else {
-    console.log('✅ Email server ready to send messages')
-  }
-})
-
 export const sendOtpEmail = async (email, otp) => {
   try {
-    // Create fresh transporter each time to avoid credential issues
-    const freshTransporter = createTransporter()
-
-    const mailOptions = {
-      from: process.env.EMAIL_FROM,
+    const transporter = createTransporter()
+    await transporter.sendMail({
+      from: 'findSpot <findspot8@gmail.com>',
       to: email,
       subject: 'Your findSpot OTP Code',
       html: `
@@ -78,13 +59,10 @@ export const sendOtpEmail = async (email, otp) => {
 
         </div>
       `,
-    }
-
-    await freshTransporter.sendMail(mailOptions)
+    })
     console.log(`📧 OTP email sent to ${email}`)
-
   } catch (err) {
-    console.error(`❌ Failed to send email to ${email}:`, err.message)
+    console.error(`❌ Failed to send email:`, err.message)
     throw new Error('Failed to send OTP email. Please try again.')
   }
 }
