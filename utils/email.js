@@ -7,7 +7,7 @@ export const sendOtpEmail = async (email, otp) => {
       {
         sender: {
           name: "findSpot",
-          email: process.env.BREVO_USER, // must be verified in Brevo
+          email: process.env.BREVO_USER, 
         },
         to: [{ email }],
         subject: "Your findSpot OTP Code",
