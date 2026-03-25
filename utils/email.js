@@ -5,6 +5,7 @@ const createTransporter = () => {
     host: 'smtp-relay.brevo.com',
     port: 587,
     secure: false,
+    service:"gmail",
     auth: {
       user: process.env.BREVO_USER,
       pass: process.env.BREVO_PASS,
