@@ -2,60 +2,70 @@ import { scrapeAmazon } from './amazon.scraper.js'
 import { scrapeFlipkart } from './flipkart.scraper.js'
 import { searchAmazonRapid } from './rapidapi.scraper.js'
 
+const cache = new Map()
+
 export const scrapeAll = async (query) => {
-  console.log(`🕷️ Scraping all platforms for: ${query}`)
+  console.log(`🕷️ Searching: ${query}`)
+
+  // ✅ 1. Cache check
+  if (cache.has(query)) {
+    console.log('⚡ Cache hit')
+    return cache.get(query)
+  }
 
   let allProducts = []
 
-  // ── Step 1: Try RapidAPI ──
-  if (process.env.RAPIDAPI_KEY) {
-    console.log('✅ Using RapidAPI...')
+  // ✅ 2. FAST: RapidAPI
+  try {
+    const rapidResults = await searchAmazonRapid(query)
+    allProducts = rapidResults
+    console.log(`⚡ RapidAPI returned ${rapidResults.length}`)
+  } catch (err) {
+    console.log('❌ RapidAPI failed')
+  }
 
-    const rapidResults = await Promise.allSettled([
-      searchAmazonRapid(query),
-    ])
+  // ✅ 3. Send response immediately (important)
+  cache.set(query, allProducts)
 
-    rapidResults.forEach((result) => {
-      if (result.status === 'fulfilled' && result.value.length > 0) {
-        allProducts.push(...result.value)
-        console.log(`✅ RapidAPI: ${result.value.length} results`)
-      } else {
-        console.log('⚠️ RapidAPI returned empty or failed')
+  // ✅ 4. Background scraping (DO NOT await)
+  setTimeout(async () => {
+    console.log('🧩 Running background scrapers...')
+
+    try {
+      const results = await Promise.allSettled([
+        scrapeAmazon(query),
+        scrapeFlipkart(query),
+      ])
+
+      let extra = []
+
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') {
+          extra.push(...r.value)
+        }
+      })
+
+      // Merge + dedupe
+      const merged = [...allProducts, ...extra]
+      const unique = []
+      const seen = new Set()
+
+      for (const p of merged) {
+        const key = p.asin || p.url || p.title
+        if (!seen.has(key)) {
+          seen.add(key)
+          unique.push(p)
+        }
       }
-    })
-  }
 
-  // ── Step 2: ALSO fetch from scrapers (IMPORTANT FIX) ──
-  console.log('🧩 Fetching from direct scrapers...')
+      cache.set(query, unique)
+      console.log(`✅ Cache updated: ${unique.length} items`)
 
-  const scraperResults = await Promise.allSettled([
-    scrapeAmazon(query),
-    scrapeFlipkart(query),
-  ])
-
-  scraperResults.forEach((result, i) => {
-    if (result.status === 'fulfilled' && result.value.length > 0) {
-      console.log(`✅ Scraper ${i + 1}: ${result.value.length} results`)
-      allProducts.push(...result.value)
-    } else {
-      console.log(`⚠️ Scraper ${i + 1} failed`)
+    } catch (err) {
+      console.log('❌ Background scraping failed')
     }
-  })
 
-  // ── Step 3: Remove duplicates (VERY IMPORTANT) ──
-  const uniqueProducts = []
-  const seen = new Set()
+  }, 0)
 
-  for (const product of allProducts) {
-    const key = product.asin || product.url || product.title
-
-    if (!seen.has(key)) {
-      seen.add(key)
-      uniqueProducts.push(product)
-    }
-  }
-
-  console.log(`📦 Total unique products: ${uniqueProducts.length}`)
-
-  return uniqueProducts
+  return allProducts
 }
