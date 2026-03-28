@@ -1,79 +1,41 @@
 import { scrapeAll } from '../scrapers/orchestrator.js'
 
-const getDummyResults = (query) => [
-  {
-    id: '1',
-    title: `${query} - Premium Edition`,
-    image: 'https://m.media-amazon.com/images/I/71NTwRABB0L._SX679_.jpg',
-    price: 1299, mrp: 3990, discount: 67,
-    platform: 'Amazon', rating: 4.2, reviews: 2341,
-    url: 'https://amazon.in', inStock: true,
-    delivery: 'Free delivery tomorrow'
-  },
-  {
-    id: '2',
-    title: `${query} - Standard Pack`,
-    image: 'https://m.media-amazon.com/images/I/71V1BE3CVJL._SX679_.jpg',
-    price: 999, mrp: 2499, discount: 60,
-    platform: 'Flipkart', rating: 4.0, reviews: 1820,
-    url: 'https://flipkart.com', inStock: true,
-    delivery: 'Free delivery in 2 days'
-  },
-  {
-    id: '3',
-    title: `${query} - Pro Version`,
-    image: 'https://m.media-amazon.com/images/I/71NTwRABB0L._SX679_.jpg',
-    price: 2199, mrp: 4999, discount: 56,
-    platform: 'Myntra', rating: 4.5, reviews: 980,
-    url: 'https://myntra.com', inStock: true,
-    delivery: 'Delivery in 3-4 days'
-  },
-  {
-    id: '4',
-    title: `${query} - Budget Pick`,
-    image: 'https://m.media-amazon.com/images/I/71V1BE3CVJL._SX679_.jpg',
-    price: 799, mrp: 1499, discount: 47,
-    platform: 'Meesho', rating: 3.9, reviews: 540,
-    url: 'https://meesho.com', inStock: true,
-    delivery: 'Delivery in 5-7 days'
-  },
-  {
-    id: '5',
-    title: `${query} - Special Edition`,
-    image: 'https://m.media-amazon.com/images/I/71NTwRABB0L._SX679_.jpg',
-    price: 3499, mrp: 6999, discount: 50,
-    platform: 'Amazon', rating: 4.6, reviews: 4210,
-    url: 'https://amazon.in', inStock: true,
-    delivery: 'Free delivery tomorrow'
-  },
-  {
-    id: '6',
-    title: `${query} - Lite Version`,
-    image: 'https://m.media-amazon.com/images/I/71V1BE3CVJL._SX679_.jpg',
-    price: 599, mrp: 1299, discount: 54,
-    platform: 'Ajio', rating: 4.1, reviews: 760,
-    url: 'https://ajio.com', inStock: true,
-    delivery: 'Delivery in 2-3 days'
-  },
-  {
-    id: '7',
-    title: `${query} - Luxury Range`,
-    image: 'https://m.media-amazon.com/images/I/71NTwRABB0L._SX679_.jpg',
-    price: 5999, mrp: 9999, discount: 40,
-    platform: 'Nykaa', rating: 4.7, reviews: 1230,
-    url: 'https://nykaa.com', inStock: true,
-    delivery: 'Delivery in 3-5 days'
-  },
-  {
-    id: '8',
-    title: `${query} - Classic Series`,
-    image: 'https://m.media-amazon.com/images/I/71V1BE3CVJL._SX679_.jpg',
-    price: 1599, mrp: 2999, discount: 47,
-    platform: 'Flipkart', rating: 4.3, reviews: 890,
-    url: 'https://flipkart.com', inStock: true,
-    delivery: 'Free delivery in 2 days'
-  },
-]
+const getDummyResults = (query) => {
+  const platforms = [
+    { platform: 'Amazon', url: 'https://amazon.in', mult: 1.0 },
+    { platform: 'Flipkart', url: 'https://flipkart.com', mult: 1.05 },
+    { platform: 'Myntra', url: 'https://myntra.com', mult: 1.1 },
+    { platform: 'Ajio', url: 'https://ajio.com', mult: 0.95 },
+    { platform: 'Meesho', url: 'https://meesho.com', mult: 0.85 },
+    { platform: 'Nykaa', url: 'https://nykaa.com', mult: 1.15 },
+  ]
+
+  let basePrice = 999
+  const q = query.toLowerCase()
+  if (q.includes('phone') || q.includes('iphone')) basePrice = 15000
+  else if (q.includes('laptop')) basePrice = 45000
+  else if (q.includes('tv')) basePrice = 25000
+  else if (q.includes('earphone') || q.includes('headphone') || q.includes('boat')) basePrice = 1299
+  else if (q.includes('shoe') || q.includes('nike')) basePrice = 2499
+
+  return platforms.map((p, i) => {
+    const price = Math.round(basePrice * p.mult)
+    const mrp = Math.round(price * 1.4)
+    const discount = Math.round(((mrp - price) / mrp) * 100)
+    return {
+      id: String(i + 1),
+      title: `${query} - ${['Premium', 'Standard', 'Pro', 'Budget', 'Special', 'Classic'][i]}`,
+      image: 'https://m.media-amazon.com/images/I/71NTwRABB0L._SX679_.jpg',
+      price, mrp, discount,
+      platform: p.platform,
+      rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
+      reviews: Math.floor(Math.random() * 5000) + 100,
+      url: p.url,
+      inStock: true,
+      delivery: 'Check on platform',
+    }
+  })
+}
 
 export const searchProducts = async (req, res) => {
   try {
@@ -87,9 +49,9 @@ export const searchProducts = async (req, res) => {
 
     let results = await scrapeAll(q)
 
-    // Fallback to dummy data if scrapers return nothing
+    // Fallback to dummy if no results
     if (results.length === 0) {
-      console.log('⚠️ Scrapers returned 0 results — using dummy data')
+      console.log('⚠️ No results — using dummy data')
       results = getDummyResults(q)
     }
 

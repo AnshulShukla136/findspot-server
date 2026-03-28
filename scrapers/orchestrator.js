@@ -1,48 +1,42 @@
 import { scrapeAmazon } from './amazon.scraper.js'
 import { scrapeFlipkart } from './flipkart.scraper.js'
-import { searchAmazonRapid, searchFlipkartRapid } from './rapidapi.scraper.js'
+import { searchAmazonRapid } from './rapidapi.scraper.js'
 
 export const scrapeAll = async (query) => {
   console.log(`🕷️ Scraping all platforms for: ${query}`)
 
-  const useRapidAPI = !!process.env.RAPIDAPI_KEY
+  // Use RapidAPI if key is available
+  if (process.env.RAPIDAPI_KEY) {
+    console.log('✅ Using RapidAPI...')
 
-  if (useRapidAPI) {
-    console.log('Using RapidAPI for data...')
-    // Run RapidAPI scrapers in parallel
     const results = await Promise.allSettled([
       searchAmazonRapid(query),
-      searchFlipkartRapid(query),
     ])
 
     const allProducts = []
     results.forEach((result, index) => {
-      const platforms = ['Amazon', 'Flipkart']
-      if (result.status === 'fulfilled') {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
         allProducts.push(...result.value)
-        console.log(`✅ ${platforms[index]}: ${result.value.length} results`)
+        console.log(`✅ Amazon: ${result.value.length} real results`)
       } else {
-        console.error(`❌ ${platforms[index]} failed:`, result.reason?.message)
+        console.error(`❌ Amazon RapidAPI failed`)
       }
     })
 
-    return allProducts
+    if (allProducts.length > 0) return allProducts
+    console.log('⚠️ RapidAPI returned 0 — trying direct scrapers')
   }
 
   // Fallback to direct scrapers
-  console.log('Using direct scrapers...')
   const results = await Promise.allSettled([
     scrapeAmazon(query),
     scrapeFlipkart(query),
   ])
 
   const allProducts = []
-  results.forEach((result, index) => {
-    const platforms = ['Amazon', 'Flipkart']
+  results.forEach(result => {
     if (result.status === 'fulfilled') {
       allProducts.push(...result.value)
-    } else {
-      console.error(`❌ ${platforms[index]} failed:`, result.reason?.message)
     }
   })
 

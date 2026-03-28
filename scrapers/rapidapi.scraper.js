@@ -2,14 +2,15 @@ import axios from 'axios'
 import { normalizeProduct } from '../utils/normalizer.js'
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY
+const AMAZON_HOST = 'real-time-amazon-data.p.rapidapi.com'
 
-// ── Amazon via RapidAPI ──
+// ── Amazon Search ──
 export const searchAmazonRapid = async (query) => {
   try {
     console.log(`🔍 RapidAPI Amazon searching: ${query}`)
 
     const response = await axios.get(
-      'https://real-time-amazon-data.p.rapidapi.com/search',
+      `https://${AMAZON_HOST}/search`,
       {
         params: {
           query,
@@ -17,100 +18,146 @@ export const searchAmazonRapid = async (query) => {
           country: 'IN',
           sort_by: 'RELEVANCE',
           product_condition: 'ALL',
+          language: 'en_IN',
         },
         headers: {
           'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': 'real-time-amazon-data.p.rapidapi.com',
+          'X-RapidAPI-Host': AMAZON_HOST,
         },
         timeout: 15000,
       }
     )
 
     const products = response.data?.data?.products || []
-    console.log(`✅ RapidAPI Amazon: ${products.length} products found`)
+    console.log(`✅ Amazon RapidAPI: ${products.length} products found`)
 
     return products
       .filter(p => p.product_title && p.product_price)
-      .slice(0, 8)
+      .slice(0, 10)
       .map(p => {
+        // ✅ exact field names from your response
         const price = parseFloat(
-          p.product_price?.replace(/[^0-9.]/g, '') || '0'
-        )
+          String(p.product_price).replace(/[₹,]/g, '').trim()
+        ) || 0
+
         const mrp = parseFloat(
-          p.product_original_price?.replace(/[^0-9.]/g, '') || '0'
-        ) || price * 1.3
+          String(p.product_original_price || '0').replace(/[₹,]/g, '').trim()
+        ) || Math.round(price * 1.3)
+
+        const discount = mrp > price
+          ? Math.round(((mrp - price) / mrp) * 100)
+          : 0
 
         return normalizeProduct({
           title: p.product_title,
           image: p.product_photo,
           price,
           mrp,
+          discount,
           url: p.product_url,
           rating: parseFloat(p.product_star_rating) || 0,
-          reviews: parseInt(p.product_num_ratings?.replace(/[^0-9]/g, '')) || 0,
-          inStock: p.is_prime || true,
-          delivery: 'Check on Amazon',
+          reviews: parseInt(p.product_num_ratings) || 0,
+          inStock: true,
+          delivery: p.delivery?.split('Or')[0]?.trim() || 'Check on Amazon',
+          badge: p.is_amazon_choice ? 'Amazon Choice' :
+                 p.is_best_seller ? 'Best Seller' : null,
+          asin: p.asin,
+          salesVolume: p.sales_volume || null,
         }, 'Amazon')
       })
 
   } catch (err) {
-    console.error('❌ RapidAPI Amazon error:', err.message)
+    console.error('❌ Amazon RapidAPI error:', err.message)
     return []
   }
 }
 
-// ── Flipkart via RapidAPI ──
-export const searchFlipkartRapid = async (query) => {
+// ── Amazon Best Sellers / Deals ──
+export const getAmazonBestSellers = async () => {
   try {
-    console.log(`🔍 RapidAPI Flipkart searching: ${query}`)
+    console.log('🔍 Fetching Amazon best sellers...')
 
     const response = await axios.get(
-      'https://real-time-flipkart-data.p.rapidapi.com/search',
+      `https://${AMAZON_HOST}/best-sellers`,
       {
         params: {
-          q: query,
-          page: '1',
-          sort_by: 'relevance',
+          category: 'electronics',
+          country: 'IN',
+          language: 'en_IN',
         },
         headers: {
           'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': 'real-time-flipkart-data.p.rapidapi.com',
+          'X-RapidAPI-Host': AMAZON_HOST,
         },
         timeout: 15000,
       }
     )
 
-    const products = response.data?.products || []
-    console.log(`✅ RapidAPI Flipkart: ${products.length} products found`)
+    const products = response.data?.data?.best_sellers || []
+    console.log(`✅ Amazon best sellers: ${products.length} found`)
 
     return products
-      .filter(p => p.title && p.price)
+      .filter(p => p.product_title && p.product_price)
       .slice(0, 8)
       .map(p => {
         const price = parseFloat(
-          String(p.price).replace(/[^0-9.]/g, '') || '0'
-        )
+          String(p.product_price).replace(/[₹,]/g, '').trim()
+        ) || 0
+
         const mrp = parseFloat(
-          String(p.original_price || p.mrp || '0').replace(/[^0-9.]/g, '')
-        ) || price * 1.3
+          String(p.product_original_price || '0').replace(/[₹,]/g, '').trim()
+        ) || Math.round(price * 1.3)
+
+        const discount = mrp > price
+          ? Math.round(((mrp - price) / mrp) * 100)
+          : 0
 
         return normalizeProduct({
-          title: p.title,
-          image: p.thumbnail || p.image,
+          title: p.product_title,
+          image: p.product_photo,
           price,
           mrp,
-          url: p.url || p.product_url || 'https://flipkart.com',
-          rating: parseFloat(p.rating) || 0,
-          reviews: parseInt(
-            String(p.rating_count || '0').replace(/[^0-9]/g, '')
-          ) || 0,
+          discount,
+          url: p.product_url,
+          rating: parseFloat(p.product_star_rating) || 0,
+          reviews: parseInt(p.product_num_ratings) || 0,
           inStock: true,
-          delivery: 'Check on Flipkart',
-        }, 'Flipkart')
+          delivery: 'Check on Amazon',
+          asin: p.asin,
+        }, 'Amazon')
       })
 
   } catch (err) {
-    console.error('❌ RapidAPI Flipkart error:', err.message)
+    console.error('❌ Amazon best sellers error:', err.message)
     return []
+  }
+}
+
+// ── Amazon Product Details by ASIN ──
+export const getAmazonProductDetails = async (asin) => {
+  try {
+    console.log(`🔍 Fetching Amazon product: ${asin}`)
+
+    const response = await axios.get(
+      `https://${AMAZON_HOST}/product-details`,
+      {
+        params: {
+          asin,
+          country: 'IN',
+          language: 'en_IN',
+        },
+        headers: {
+          'X-RapidAPI-Key': RAPIDAPI_KEY,
+          'X-RapidAPI-Host': AMAZON_HOST,
+        },
+        timeout: 15000,
+      }
+    )
+
+    return response.data?.data || null
+
+  } catch (err) {
+    console.error('❌ Amazon product details error:', err.message)
+    return null
   }
 }
