@@ -5,40 +5,57 @@ import { searchAmazonRapid } from './rapidapi.scraper.js'
 export const scrapeAll = async (query) => {
   console.log(`🕷️ Scraping all platforms for: ${query}`)
 
-  // Use RapidAPI if key is available
+  let allProducts = []
+
+  // ── Step 1: Try RapidAPI ──
   if (process.env.RAPIDAPI_KEY) {
     console.log('✅ Using RapidAPI...')
 
-    const results = await Promise.allSettled([
+    const rapidResults = await Promise.allSettled([
       searchAmazonRapid(query),
     ])
 
-    const allProducts = []
-    results.forEach((result, index) => {
+    rapidResults.forEach((result) => {
       if (result.status === 'fulfilled' && result.value.length > 0) {
         allProducts.push(...result.value)
-        console.log(`✅ Amazon: ${result.value.length} real results`)
+        console.log(`✅ RapidAPI: ${result.value.length} results`)
       } else {
-        console.error(`❌ Amazon RapidAPI failed`)
+        console.log('⚠️ RapidAPI returned empty or failed')
       }
     })
-
-    if (allProducts.length > 0) return allProducts
-    console.log('⚠️ RapidAPI returned 0 — trying direct scrapers')
   }
 
-  // Fallback to direct scrapers
-  const results = await Promise.allSettled([
+  // ── Step 2: ALSO fetch from scrapers (IMPORTANT FIX) ──
+  console.log('🧩 Fetching from direct scrapers...')
+
+  const scraperResults = await Promise.allSettled([
     scrapeAmazon(query),
     scrapeFlipkart(query),
   ])
 
-  const allProducts = []
-  results.forEach(result => {
-    if (result.status === 'fulfilled') {
+  scraperResults.forEach((result, i) => {
+    if (result.status === 'fulfilled' && result.value.length > 0) {
+      console.log(`✅ Scraper ${i + 1}: ${result.value.length} results`)
       allProducts.push(...result.value)
+    } else {
+      console.log(`⚠️ Scraper ${i + 1} failed`)
     }
   })
 
-  return allProducts
+  // ── Step 3: Remove duplicates (VERY IMPORTANT) ──
+  const uniqueProducts = []
+  const seen = new Set()
+
+  for (const product of allProducts) {
+    const key = product.asin || product.url || product.title
+
+    if (!seen.has(key)) {
+      seen.add(key)
+      uniqueProducts.push(product)
+    }
+  }
+
+  console.log(`📦 Total unique products: ${uniqueProducts.length}`)
+
+  return uniqueProducts
 }

@@ -32,14 +32,15 @@ export const searchAmazonRapid = async (query) => {
     console.log(`✅ Amazon RapidAPI: ${products.length} products found`)
 
     return products
-      .filter(p => p.product_title && p.product_price)
-      .slice(0, 10)
+      .filter(p => p.product_title)
+      .slice(0, 20)
       .map(p => {
         // ✅ exact field names from your response
-        const price = parseFloat(
-          String(p.product_price).replace(/[₹,]/g, '').trim()
-        ) || 0
+        const rawPrice = String(p.product_price || '')
 
+const price = rawPrice.match(/\d+/)
+  ? parseFloat(rawPrice.replace(/[^\d.]/g, ''))
+  : null
         const mrp = parseFloat(
           String(p.product_original_price || '0').replace(/[₹,]/g, '').trim()
         ) || Math.round(price * 1.3)
@@ -100,10 +101,11 @@ export const getAmazonBestSellers = async () => {
       .filter(p => p.product_title && p.product_price)
       .slice(0, 8)
       .map(p => {
-        const price = parseFloat(
-          String(p.product_price).replace(/[₹,]/g, '').trim()
-        ) || 0
+        const rawPrice = String(p.product_price || '')
 
+const price = rawPrice.match(/\d+/)
+  ? parseFloat(rawPrice.replace(/[^\d.]/g, ''))
+  : null
         const mrp = parseFloat(
           String(p.product_original_price || '0').replace(/[₹,]/g, '').trim()
         ) || Math.round(price * 1.3)
