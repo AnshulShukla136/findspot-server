@@ -58,7 +58,33 @@ export const register = async (req, res) => {
     res.status(500).json({ message: err.message })
   }
 }
+// @PUT /api/auth/update-profile
+export const updateProfile = async (req, res) => {
+  try {
+    const { phone, firstName, lastName } = req.body
 
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { 
+        ...(phone && { phone }),
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+      },
+      { new: true }
+    ).select('-password')
+
+    res.json({
+      user: {
+        id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        phone: user.phone,
+      }
+    })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+}
 // @POST /api/auth/login
 export const login = async (req, res) => {
   try {
