@@ -10,7 +10,7 @@ import authRoutes from './routes/auth.routes.js'
 import searchRoutes from './routes/search.routes.js'
 import productRoutes from './routes/product.routes.js'
 import { errorHandler } from './middleware/error.middleware.js'
-const keepAlive = require('./utils/keepAlive')
+import keepAlive from './utils/keepAlive.js'
 dotenv.config()
 
 const app = express()
