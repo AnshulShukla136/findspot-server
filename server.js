@@ -10,7 +10,7 @@ import authRoutes from './routes/auth.routes.js'
 import searchRoutes from './routes/search.routes.js'
 import productRoutes from './routes/product.routes.js'
 import { errorHandler } from './middleware/error.middleware.js'
-
+const keepAlive = require('./utils/keepAlive')
 dotenv.config()
 
 const app = express()
@@ -18,7 +18,9 @@ app.set('trust proxy', 1)
 
 // Connect to MongoDB
 connectDB()
-
+if (process.env.NODE_ENV === 'production') {
+  keepAlive()
+}
 // Rate limiters
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
