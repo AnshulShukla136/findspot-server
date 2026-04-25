@@ -3,6 +3,7 @@
 node_modules/
 
 .env
+#remove .env
 # Logs
 logs
 *.log
