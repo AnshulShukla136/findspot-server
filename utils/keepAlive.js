@@ -2,8 +2,8 @@ import cron from 'node-cron'
 import axios from 'axios'
 
 const keepAlive = () => {
-  // Ping every 14 minutes to prevent Render cold start
-  cron.schedule('*/14 * * * *', async () => {
+  // Ping once every day
+  cron.schedule('0 0 * * *', async () => {
     try {
       const url =
         process.env.RENDER_URL ||
