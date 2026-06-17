@@ -18,9 +18,9 @@ app.set('trust proxy', 1)
 
 // Connect to MongoDB
 connectDB()
-if (process.env.NODE_ENV === 'production') {
-  keepAlive()
-}
+// if (process.env.NODE_ENV === 'production') {
+//   keepAlive()
+// }
 // Rate limiters
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
